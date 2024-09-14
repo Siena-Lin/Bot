@@ -1,0 +1,179 @@
+from telegram import Update, ReplyKeyboardMarkup, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+import nest_asyncio
+import asyncio
+
+# Применяем nest_asyncio для совместимости с уже запущенным event loop
+nest_asyncio.apply()
+
+# Словарь для текстов на разных языках
+language_texts = {
+    "ru": {
+        "welcome": "Добро пожаловать в визуальную новеллу! Выберите действие:",
+        "new_game": "🆕 Новая игра",
+        "load_game": "📂 Загрузить игру",
+        "settings": "⚙️ Настройки",
+        "exit": "🚪 Выход",
+        "choose_language": "Выберите язык:",
+        "new_game_msg": "Начало новой игры...",
+        "load_game_msg": "Загрузка игры...",
+        "settings_msg": "Настройки...",
+        "exit_msg": "Выход из игры..."
+    },
+    "en": {
+        "welcome": "Welcome to the visual novel! Choose an action:",
+        "new_game": "🆕 New Game",
+        "load_game": "📂 Load Game",
+        "settings": "⚙️ Settings",
+        "exit": "🚪 Exit",
+        "choose_language": "Choose a language:",
+        "new_game_msg": "Starting a new game...",
+        "load_game_msg": "Loading game...",
+        "settings_msg": "Settings...",
+        "exit_msg": "Exiting game..."
+    },
+    "de": {
+        "welcome": "Willkommen in der visuellen Novelle! Wählen Sie eine Aktion:",
+        "new_game": "🆕 Neues Spiel",
+        "load_game": "📂 Spiel laden",
+        "settings": "⚙️ Einstellungen",
+        "exit": "🚪 Beenden",
+        "choose_language": "Wählen Sie eine Sprache:",
+        "new_game_msg": "Neues Spiel beginnt...",
+        "load_game_msg": "Spiel wird geladen...",
+        "settings_msg": "Einstellungen...",
+        "exit_msg": "Spiel verlassen..."
+    },
+    "zh": {
+        "welcome": "欢迎来到视觉小说！请选择一个操作:",
+        "new_game": "🆕 新游戏",
+        "load_game": "📂 加载游戏",
+        "settings": "⚙️ 设置",
+        "exit": "🚪 退出",
+        "choose_language": "选择语言:",
+        "new_game_msg": "开始新游戏...",
+        "load_game_msg": "加载游戏中...",
+        "settings_msg": "设置...",
+        "exit_msg": "退出游戏..."
+    },
+    "ar": {
+        "welcome": "مرحبًا بك في الرواية المرئية! اختر إجراء:",
+        "new_game": "🆕 لعبة جديدة",
+        "load_game": "📂 تحميل اللعبة",
+        "settings": "⚙️ الإعدادات",
+        "exit": "🚪 خروج",
+        "choose_language": "اختر اللغة:",
+        "new_game_msg": "بدء لعبة جديدة...",
+        "load_game_msg": "جاري تحميل اللعبة...",
+        "settings_msg": "الإعدادات...",
+        "exit_msg": "الخروج من اللعبة..."
+}
+
+# Словарь для хранения выбранного языка пользователями
+user_language = {}
+
+# Меню выбора языка
+async def choose_language(update: Update, context) -> None:
+    keyboard = [["Русский", "English"], ["Deutsch", "中文", "عربي"]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    await update.message.reply_text(
+        "Choose a language / Выберите язык / Wählen Sie eine Sprache / 选择语言 / اختر اللغة:",  
+        reply_markup=reply_markup
+    )
+
+# Обработчик выбора языка
+async def handle_language(update: Update, context) -> None:
+    chat_id = update.message.chat_id
+    text = update.message.text.lower()
+
+    if text == "русский":
+        user_language[chat_id] = "ru"
+        await update.message.reply_text("Вы выбрали Русский язык.")
+    elif text == "english":
+        user_language[chat_id] = "en"
+        await update.message.reply_text("You have selected English.")
+    elif text == "deutsch":
+        user_language[chat_id] = "de"
+        await update.message.reply_text("Sie haben Deutsch gewählt.")
+    elif text == "中文":
+        user_language[chat_id] = "zh"
+        await update.message.reply_text("您选择了中文。")
+    elif text == "عربي":
+        user_language[chat_id] = "ar"
+        await update.message.reply_text("لقد اخترت اللغة العربية.")
+    else:
+        await update.message.reply_text("Please choose a valid language.")
+        return
+
+    # После выбора языка переключаемся на обработку меню
+    await start(update, context)
+
+# Главное меню с учетом выбранного языка
+async def start(update: Update, context) -> None:
+    chat_id = update.message.chat_id
+    lang = user_language.get(chat_id, "en")  # По умолчанию английский, если язык не выбран
+
+    texts = language_texts[lang]
+
+    keyboard = [
+        [texts["new_game"], texts["load_game"]],
+        [texts["settings"], texts["exit"]]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    await update.message.reply_text(
+        texts["welcome"],
+        reply_markup=reply_markup
+    )
+
+# Обработчик для кнопок в главном меню
+async def handle_menu(update: Update, context) -> None:
+    chat_id = update.message.chat_id
+    lang = user_language.get(chat_id, "en")
+    texts = language_texts[lang]
+
+    text = update.message.text
+
+    if text == texts["new_game"]:
+        await update.message.reply_text(texts["new_game_msg"])
+        # Логика для новой игры
+    elif text == texts["load_game"]:
+        # Логика для открытия веб-приложения
+        web_app_url = 'https://siena-lin.github.io/Visual-Novel-Public/'
+        keyboard = [
+            [InlineKeyboardButton(text="Открыть мини-приложение", web_app=WebAppInfo(url=web_app_url))]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Запустите мини-приложение:", reply_markup=reply_markup)
+    elif text == texts["settings"]:
+        await update.message.reply_text(texts["settings_msg"])
+        # Логика для настроек
+    elif text == texts["exit"]:
+        await update.message.reply_text(texts["exit_msg"])
+        # Логика для выхода (может быть, остановка бота или закрытие)
+    else:
+        await update.message.reply_text("Пожалуйста, выберите опцию из меню.")
+
+# Основная функция для запуска бота
+async def main() -> None:
+    # Токен вашего бота
+    TOKEN = "7169951156:AAH7Cf_BaWIQETdP2yVyQIAzQMxDPXbVyuY"  # Замените на ваш токен
+
+    # Создаем приложение
+    application = Application.builder().token(TOKEN).build()
+
+    # Команда /start для выбора языка
+    application.add_handler(CommandHandler("start", choose_language))
+
+    # Обработчик для выбора языка и основного меню
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_language))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu))
+
+    # Запуск бота
+    await application.run_polling()
+
+# Запуск бота
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
